@@ -1,0 +1,78 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+}
+
+h2 {
+    margin-bottom: 10px;
+}
+
+.form {
+    max-width: 600px;
+    margin-bottom: 10px;
+}
+
+label {
+    display: block;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+input {
+    width: 100%;
+    padding: 6px;
+    margin-top: 4px;
+}
+
+.coords {
+    display: flex;
+    gap: 10px;
+}
+
+.coords div {
+    flex: 1;
+}
+
+#map {
+    height: 400px;
+    width: 100%;
+    margin-top: 15px;
+    border-radius: 6px;
+}
+.chat-section {
+    margin-top: 15px;
+}
+
+textarea {
+    width: 100%;
+    height: 80px;
+    padding: 8px;
+}
+
+button {
+    margin-top: 8px;
+    padding: 8px 14px;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.env-cards {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.env-card {
+    padding: 10px;
+    border-radius: 6px;
+    background: #f3f3f3;
+    min-width: 120px;
+    text-align: center;
+}
+
+.answer-box {
+    margin-top: 15px;
+    padding: 12px;
+    background: #eef6ff;
+    border-radius: 6px;
+}

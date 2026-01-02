@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+python-dotenv
+openai
+tiktoken
+chromadb==0.4.24
+pydantic<2
+numpy<2

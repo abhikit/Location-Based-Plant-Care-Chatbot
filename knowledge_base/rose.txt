@@ -1,0 +1,8 @@
+Plant: Rose
+Category: Ideal Growing Conditions
+
+Roses grow best in temperatures between 15°C and 30°C.
+They require at least 6 hours of direct sunlight daily.
+Ideal soil for roses is well-drained loamy soil with a pH between 6.0 and 6.5.
+Roses prefer moderate humidity; extremely dry or extremely humid conditions can stress the plant.
+Overwatering can cause root rot, while underwatering leads to wilting and yellowing leaves.
