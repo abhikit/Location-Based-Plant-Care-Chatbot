@@ -140,3 +140,4 @@ Deployment-Ready	Local → AWS / Azure
 	•	Designed for safe expansion into production environments
 
 
+# Location-Based-Plant-Care-Chatbot
