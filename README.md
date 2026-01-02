@@ -1,7 +1,8 @@
 # 🌱 Location-Based Plant Care Chatbot
 
-
 🎯 Key Objectives Achieved
+
+
 	•	✅ Strong Retrieval-Augmented Generation (RAG) enforcement
 	•	✅ OpenAI used only as a reasoning & language layer
 	•	✅ Location-aware contextualization (weather, air, environment)
