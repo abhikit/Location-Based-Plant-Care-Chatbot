@@ -139,5 +139,3 @@ Deployment-Ready	Local → AWS / Azure
 	•	Only retrieved snippets passed to OpenAI
 	•	Designed for safe expansion into production environments
 
-
-# Location-Based-Plant-Care-Chatbot
