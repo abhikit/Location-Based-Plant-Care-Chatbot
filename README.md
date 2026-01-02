@@ -1,27 +1,5 @@
 # 🌱 Location-Based Plant Care Chatbot
-Perfect. Let’s lock Phase-1 properly and document it in a way that:
-	•	✅ Signals strong GenAI fundamentals
-	•	✅ Clearly differentiates you from “ChatGPT wrapper” projects
-	•	✅ Is resume + interview + GitHub reviewer friendly
 
-Below is a drop-in README section you can paste directly into your GitHub repo.
-
-⸻
-
-🌱 Geo-Plant AI — Phase-1 Complete
-
-Location-Aware, Strong RAG-Based Plant Care Chatbot
-
-⸻
-
-📌 Phase-1 Overview (Locked)
-
-Phase-1 establishes a production-grade foundation for a Location-Aware, Vision-Ready, Strong RAG-based Plant Care Assistant.
-The system is intentionally designed to avoid hallucinations, enforce knowledge grounding, and separate reasoning from knowledge.
-
-This phase focuses on architecture correctness, data flow discipline, and extensibility, rather than superficial LLM responses.
-
-⸻
 
 🎯 Key Objectives Achieved
 	•	✅ Strong Retrieval-Augmented Generation (RAG) enforcement
