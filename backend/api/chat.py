@@ -1,95 +1,93 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
 from typing import Optional
 
-from backend.rag.retriever import retrieve
-from backend.rag.generator import generate_answer
-from backend.conversation.memory import get_memory, add_message
+# =========================
+# Orchestrator (SINGLE BRAIN)
+# =========================
+from backend.agent_orchestrator.orchestrator import run_orchestration
 
-from backend.environment.weather import fetch_weather
-from backend.environment.air_quality import fetch_air_quality
-from backend.environment.reasoner import summarize_environment
-
-from backend.vision.vision_embedder import extract_visual_signals
+# =========================
+# Phase-3C: Async Enrichment
+# =========================
+from backend.enrichment_agent.background import run_async_enrichment
 
 router = APIRouter()
 
 
 @router.post("/chat")
 def chat(
+    background_tasks: BackgroundTasks,
     session_id: str = Form(...),
     latitude: float = Form(...),
     longitude: float = Form(...),
     question: Optional[str] = Form(None),
-    image: Optional[UploadFile] = File(None)
+    image: Optional[UploadFile] = File(None),
 ):
-    # ❌ Case: Neither text nor image provided
+    """
+    Main chat endpoint (Phase-3B + Phase-3C compliant)
+
+    Supports:
+    - text only
+    - image only
+    - text + image
+
+    Guarantees:
+    - No-RAG-No-Answer
+    - Grounded answers only
+    - Environment-aware
+    - Vision-aware
+    - Agentic enrichment (ASYNC, non-blocking)
+    """
+
+    # --------------------------------------------------
+    # 0️⃣ Input validation
+    # --------------------------------------------------
     if not question and not image:
         raise HTTPException(
             status_code=400,
-            detail="Please provide either a question, an image, or both."
+            detail="Please provide either a question, an image, or both.",
         )
 
-    # 🧠 If no question but image exists, create implicit intent
+    # --------------------------------------------------
+    # 1️⃣ Effective user intent
+    # --------------------------------------------------
     effective_question = question
     if not effective_question and image:
         effective_question = (
             "The user has uploaded a plant image. "
             "Describe visible symptoms and provide care guidance "
-            "only if supported by plant knowledge."
+            "ONLY if supported by plant knowledge."
         )
 
-    # 1️⃣ RAG retrieval (ALWAYS based on text intent)
-    chunks = retrieve(effective_question)
+    # --------------------------------------------------
+    # 2️⃣ Read image bytes ONCE (important)
+    # --------------------------------------------------
+    image_bytes = image.file.read() if image else None
 
-    # 🔒 RAG guardrail
-    if not chunks:
-        return {
-            "answer": "I don’t have enough knowledge to answer this request.",
-            "source": "rag_guard"
-        }
-
-    # 2️⃣ Memory
-    memory = get_memory(session_id)
-
-    # 3️⃣ Environment
-    weather = fetch_weather(latitude, longitude)
-    air = fetch_air_quality(latitude, longitude)
-    env_summary = summarize_environment(weather, air)
-
-    # 4️⃣ Vision (optional)
-    vision_summary = None
-    if image:
-        image_bytes = image.file.read()
-        vision_summary = extract_visual_signals(image_bytes)
-
-    # 5️⃣ Generate grounded answer
-    answer = generate_answer(
-        effective_question,
-        chunks,
-        memory,
-        environment_summary=env_summary,
-        vision_summary=vision_summary
+    # --------------------------------------------------
+    # 3️⃣ ORCHESTRATOR (SYNC, USER-CRITICAL PATH)
+    # --------------------------------------------------
+    orchestration_result = run_orchestration(
+        session_id=session_id,
+        question=effective_question,
+        latitude=latitude,
+        longitude=longitude,
+        image_bytes=image_bytes,
     )
 
-    # 6️⃣ Store memory (only real user text, not synthetic)
-    if question:
-        add_message(session_id, "user", question)
-    add_message(session_id, "assistant", answer)
+    # --------------------------------------------------
+    # 4️⃣ ASYNC ENRICHMENT (NON-BLOCKING)
+    # --------------------------------------------------
+    background_tasks.add_task(
+        run_async_enrichment,
+        user_question=effective_question,
+        rag_chunks=orchestration_result.get("rag_chunks", []),
+        llm_answer=orchestration_result.get("answer"),
+        environment_summary=orchestration_result.get("environment", {}).get("summary"),
+        vision_summary=orchestration_result.get("vision_summary"),
+    )
 
-    return {
-        "answer": answer,
-        "source": "rag+llm+memory+environment+vision",
-        "input_mode": (
-            "text+image" if question and image
-            else "image_only" if image
-            else "text_only"
-        ),
-        "environment": {
-            "temperature": weather.get("temperature_c"),
-            "humidity": weather.get("humidity"),
-            "aqi": air.get("aqi"),
-            "pm25": air.get("pm25"),
-            "pm10": air.get("pm10"),
-            "summary": env_summary
-        }
-    }
+    # --------------------------------------------------
+    # 5️⃣ Return user response immediately
+    # --------------------------------------------------
+    return orchestration_result
