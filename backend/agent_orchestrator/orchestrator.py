@@ -1,6 +1,6 @@
 from typing import Optional
 
-# Tool planner
+# Tool routing
 from backend.agent_router.router import decide_tools
 
 # RAG
@@ -18,67 +18,77 @@ from backend.environment.reasoner import summarize_environment
 # Vision
 from backend.vision.vision_embedder import extract_visual_signals
 
-# Enrichment agents (READ-ONLY)
+# Enrichment (read-only)
 from backend.enrichment_agent.detector import detect_knowledge_gap
 from backend.enrichment_agent.proposer import propose_knowledge_enrichment
 from backend.enrichment_agent.approval_store import store_proposal
+
+# Safety
+from backend.safety.disclaimer_agent import inject_disclaimer
 
 
 def run_orchestration(
     session_id: str,
     question: str,
-    latitude: float,
-    longitude: float,
-    image_bytes: Optional[bytes] = None,
+    latitude: Optional[float],
+    longitude: Optional[float],
+    image_bytes: Optional[bytes],
 ):
     """
-    Central brain of the system.
+    Central orchestration brain.
+    This function owns ALL execution flow.
     """
 
     # --------------------------------------------------
-    # 1️⃣ Decide tools
+    # 1️⃣ Decide which tools to run
     # --------------------------------------------------
     tool_plan = decide_tools(
         question=question,
         has_image=bool(image_bytes),
-        has_location=True,
+        has_location=bool(latitude and longitude),
     )
 
     # --------------------------------------------------
-    # 2️⃣ RAG retrieval (MANDATORY)
+    # 2️⃣ RAG retrieval (authoritative)
     # --------------------------------------------------
     chunks = retrieve(question)
 
     if not chunks:
         return {
-            "answer": "I don’t have enough knowledge to answer this request.",
+            "answer": "I do not have enough information.",
             "source": "rag_guard",
+            "input_mode": "text_only",
+            "environment": None,
             "knowledge_proposal": None,
+            "knowledge_proposal_id": None,
         }
 
     # --------------------------------------------------
-    # 3️⃣ Memory
+    # 3️⃣ Conversation memory
     # --------------------------------------------------
     memory = get_memory(session_id)
 
     # --------------------------------------------------
-    # 4️⃣ Environment
+    # 4️⃣ Environment signals
     # --------------------------------------------------
-    weather, air, env_summary = {}, {}, None
-    if tool_plan.use_environment:
+    weather = {}
+    air = {}
+    env_summary = None
+
+    if tool_plan.use_environment and latitude and longitude:
         weather = fetch_weather(latitude, longitude)
         air = fetch_air_quality(latitude, longitude)
         env_summary = summarize_environment(weather, air)
 
     # --------------------------------------------------
-    # 5️⃣ Vision
+    # 5️⃣ Vision signals
     # --------------------------------------------------
     vision_summary = None
     if tool_plan.use_vision and image_bytes:
         vision_summary = extract_visual_signals(image_bytes)
 
     # --------------------------------------------------
-    # 6️⃣ Answer generation (ONLY OpenAI usage)
+    # 6️⃣ Generate grounded answer (ONLY LLM CALL)
     # --------------------------------------------------
     answer = generate_answer(
         question=question,
@@ -89,8 +99,11 @@ def run_orchestration(
     )
 
     # --------------------------------------------------
-    # 7️⃣ Knowledge gap detection
+    # 7️⃣ Knowledge gap detection + proposal
     # --------------------------------------------------
+    proposal = None
+    proposal_id = None
+
     gap_detected = detect_knowledge_gap(
         user_question=question,
         rag_chunks=chunks,
@@ -99,12 +112,6 @@ def run_orchestration(
         vision_summary=vision_summary,
     )
 
-    proposal = None
-    proposal_id = None
-
-    # --------------------------------------------------
-    # 8️⃣ Knowledge proposal (NON-BLOCKING)
-    # --------------------------------------------------
     if gap_detected:
         proposal = propose_knowledge_enrichment(
             user_question=question,
@@ -113,21 +120,43 @@ def run_orchestration(
             environment_summary=env_summary,
             vision_summary=vision_summary,
         )
+
         if proposal:
             proposal_id = store_proposal(proposal)
 
     # --------------------------------------------------
-    # 9️⃣ Memory persistence
+    # 8️⃣ Determine input mode (IMPORTANT FIX)
     # --------------------------------------------------
-    add_message(session_id, "user", question)
-    add_message(session_id, "assistant", answer)
+    if question and image_bytes:
+        input_mode = "text+image"
+    elif image_bytes:
+        input_mode = "image_only"
+    else:
+        input_mode = "text_only"
 
     # --------------------------------------------------
-    # 🔟 Final response
+    # 9️⃣ Safety disclaimer injection
+    # --------------------------------------------------
+    final_answer = inject_disclaimer(
+        answer=answer,
+        input_mode=input_mode,
+        used_vision=bool(vision_summary),
+        used_environment=bool(env_summary),
+    )
+
+    # --------------------------------------------------
+    # 🔟 Store memory
+    # --------------------------------------------------
+    add_message(session_id, "user", question)
+    add_message(session_id, "assistant", final_answer)
+
+    # --------------------------------------------------
+    # 🧾 Final response
     # --------------------------------------------------
     return {
-        "answer": answer,
-        "source": "rag+llm+memory+environment+vision",
+        "answer": final_answer,
+        "source": "rag+llm+orchestrated",
+        "input_mode": input_mode,
         "environment": {
             "temperature_c": weather.get("temperature_c"),
             "humidity": weather.get("humidity"),
