@@ -1,29 +1,45 @@
-import uuid
+import json
+import os
 from datetime import datetime
-from backend.knowledge_ops.models import KnowledgeEvent
+from typing import List, Dict
+
+EVENT_LOG_DIR = "knowledge_events"
 
 
-_EVENT_LOG: list[KnowledgeEvent] = []
+def _ensure_dir():
+    os.makedirs(EVENT_LOG_DIR, exist_ok=True)
 
 
-def log_knowledge_event(
-    session_id: str,
-    question: str,
-    reason: str,
-    metadata: dict | None = None,
-) -> KnowledgeEvent:
-    event = KnowledgeEvent(
-        event_id=str(uuid.uuid4()),
-        session_id=session_id,
-        question=question,
-        detected_at=datetime.utcnow(),
-        reason=reason,
-        metadata=metadata or {},
-    )
+def log_event(event_type: str, payload: Dict):
+    """
+    Stores an immutable event record.
+    Used for compliance, audits, and traceability.
+    """
+    _ensure_dir()
 
-    _EVENT_LOG.append(event)
-    return event
+    event = {
+        "event_type": event_type,
+        "payload": payload,
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+    filename = f"{EVENT_LOG_DIR}/{datetime.utcnow().timestamp()}.json"
+    with open(filename, "w") as f:
+        json.dump(event, f, indent=2)
 
 
-def list_events() -> list[KnowledgeEvent]:
-    return _EVENT_LOG
+def get_event_log() -> List[Dict]:
+    """
+    Returns all logged events (read-only).
+    Used by Compliance API.
+    """
+    _ensure_dir()
+
+    events = []
+    for file in sorted(os.listdir(EVENT_LOG_DIR)):
+        path = os.path.join(EVENT_LOG_DIR, file)
+        if path.endswith(".json"):
+            with open(path) as f:
+                events.append(json.load(f))
+
+    return events

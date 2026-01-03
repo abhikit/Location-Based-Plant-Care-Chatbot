@@ -1,30 +1,27 @@
-RISK_KEYWORDS = {
-    "toxic_chemical": [
-        "pesticide overdose",
-        "chemical concentrate",
-        "toxic spray",
-    ],
-    "medical_advice": [
-        "safe for humans",
-        "consume leaves",
-        "eat plant",
-    ],
-    "environmental_harm": [
-        "excess fertilizer",
-        "dump chemicals",
-        "overuse pesticide",
-    ],
-}
+CHEMICAL_KEYWORDS = [
+    "pesticide",
+    "insecticide",
+    "fungicide",
+    "chemical",
+    "spray dosage",
+    "ppm",
+    "ml per liter",
+]
 
+HEALTH_KEYWORDS = [
+    "eat",
+    "consume",
+    "safe for humans",
+    "skin",
+    "inhale",
+    "toxic",
+]
 
-def apply_policy_rules(answer: str) -> list[str]:
-    flags = []
+DISCLAIMER_AGRICULTURE = (
+    "This guidance is based on general plant care knowledge. "
+    "For chemical treatments or regulated inputs, consult an authorized agricultural expert."
+)
 
-    text = answer.lower()
-    for category, keywords in RISK_KEYWORDS.items():
-        for kw in keywords:
-            if kw in text:
-                flags.append(category)
-                break
-
-    return flags
+DISCLAIMER_ENVIRONMENT = (
+    "Due to current environmental conditions, exercise caution when performing outdoor plant care activities."
+)

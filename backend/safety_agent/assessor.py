@@ -1,33 +1,32 @@
+from typing import List
+from uuid import uuid4
+
 from backend.safety_agent.models import SafetyAssessment
-from backend.safety_agent.policy import apply_policy_rules
 
 
-def assess_risk(
-    session_id: str,
-    user_question: str,
-    answer: str,
-) -> SafetyAssessment:
-    policy_flags = apply_policy_rules(answer)
+def assess_risk(answer: str) -> SafetyAssessment:
+    """
+    Lightweight rule-based safety assessment.
+    This agent NEVER changes the answer.
+    """
 
-    if not policy_flags:
-        return SafetyAssessment(
-            session_id=session_id,
-            risk_level="low",
-            risk_categories=[],
-            explanation="No safety risks detected."
-        )
+    flags: List[str] = []
+    risk_level = "low"
 
-    risk_level = "medium"
-    if "toxic_chemical" in policy_flags:
+    lowered = answer.lower()
+
+    # Basic heuristics (extend later via policy engine)
+    if any(word in lowered for word in ["poison", "toxic", "kill", "medicine", "dosage"]):
+        risk_level = "medium"
+        flags.append("potentially_harmful_advice")
+
+    if any(word in lowered for word in ["consume", "eat", "drink"]):
         risk_level = "high"
+        flags.append("human_consumption_risk")
 
     return SafetyAssessment(
-        session_id=session_id,
+        id=str(uuid4()),
         risk_level=risk_level,
-        risk_categories=policy_flags,
-        explanation=(
-            "Potential safety concerns detected in generated answer. "
-            "Human review recommended."
-        ),
-        recommendation="Add disclaimers or restrict advice scope."
+        flags=flags,
+        disclaimer_added=False,
     )

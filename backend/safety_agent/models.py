@@ -1,12 +1,24 @@
-from pydantic import BaseModel
-from typing import List, Literal, Optional
+from pydantic import BaseModel, Field
+from typing import List, Optional
 from datetime import datetime
 
 
 class SafetyAssessment(BaseModel):
-    session_id: str
-    risk_level: Literal["low", "medium", "high"]
-    risk_categories: List[str]
-    explanation: str
-    recommendation: Optional[str] = None
-    timestamp: datetime = datetime.utcnow()
+    """
+    Represents a safety evaluation for an answer.
+    Stored for compliance & audits.
+    """
+
+    id: str
+    risk_level: str = Field(
+        description="low | medium | high"
+    )
+    flags: List[str] = Field(
+        default_factory=list,
+        description="Detected safety concerns"
+    )
+    disclaimer_added: bool = False
+    assessed_at: datetime = Field(
+        default_factory=datetime.utcnow
+    )
+    assessed_by: str = "safety_agent"

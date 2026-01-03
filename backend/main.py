@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.api.chat import router as chat_router
 from backend.human_review.api import router as human_review_router
 from backend.knowledge_ops.review_api import router as review_router
+from backend.compliance.api import router as compliance_router
+
 
 
 app = FastAPI(title="Geo-Plant AI")
@@ -25,3 +27,4 @@ app.add_middleware(
 
 app.include_router(chat_router)
 app.include_router(review_router)
+app.include_router(compliance_router)
