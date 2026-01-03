@@ -1,0 +1,8 @@
+{
+  "proposal_id": "string",
+  "decision": "approve",
+  "reviewer": "string",
+  "comments": "Test",
+  "edited_content": "string",
+  "timestamp": "2026-01-03 06:21:48.754046"
+}
