@@ -1,6 +1,10 @@
-// ================= CONFIG =================
-const BACKEND_URL = "http://localhost:8000/chat";
-// ================= ELEMENTS =================
+// ===============================
+// Geo-Plant AI — Frontend Logic
+// ===============================
+
+// -------------------------------
+// DOM Elements
+// -------------------------------
 const cityInput = document.getElementById("cityInput");
 const latInput = document.getElementById("latInput");
 const lonInput = document.getElementById("lonInput");
@@ -8,120 +12,120 @@ const questionInput = document.getElementById("questionInput");
 const imageInput = document.getElementById("imageInput");
 const sendBtn = document.getElementById("sendBtn");
 const answerBox = document.getElementById("answerBox");
+const envCards = document.getElementById("envCards");
 
-// ================= MAP =================
-const map = L.map("map").setView([20.5937, 78.9629], 5);
-const marker = L.marker([20.5937, 78.9629]).addTo(map);
+// -------------------------------
+// Map Initialization (Leaflet)
+// -------------------------------
+const map = L.map("map").setView([26.9124, 75.7873], 6);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution: "© OpenStreetMap"
+  attribution: "© OpenStreetMap",
 }).addTo(map);
 
-// ================= HELPERS =================
-function updateLocation(lat, lon) {
-  latInput.value = lat;
-  lonInput.value = lon;
-  marker.setLatLng([lat, lon]);
-  map.setView([lat, lon], 12);
-}
+let marker = L.marker([26.9124, 75.7873], { draggable: true }).addTo(map);
 
-// ================= GEOCODING =================
+// -------------------------------
+// Helpers
+// -------------------------------
 async function geocodeCity(city) {
-  if (!city) return;
-
-  const res = await fetch(
-    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)}`,
-    {
-      headers: {
-        "User-Agent": "GeoPlantAI/1.0"
-      }
-    }
-  );
-
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)}`;
+  const res = await fetch(url);
   const data = await res.json();
-  if (!data.length) return;
 
-  updateLocation(data[0].lat, data[0].lon);
+  if (!data.length) return null;
+  return {
+    lat: parseFloat(data[0].lat),
+    lon: parseFloat(data[0].lon),
+  };
 }
 
 async function reverseGeocode(lat, lon) {
-  const res = await fetch(
-    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
-    {
-      headers: {
-        "User-Agent": "GeoPlantAI/1.0"
-      }
-    }
-  );
-
+  const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
+  const res = await fetch(url);
   const data = await res.json();
-  if (data.address?.city) cityInput.value = data.address.city;
-  else if (data.address?.town) cityInput.value = data.address.town;
+  return data.address?.city || data.address?.town || data.address?.state || "";
 }
 
-// ================= EVENTS =================
-cityInput.addEventListener("change", () => {
-  geocodeCity(cityInput.value);
+function renderEnvironmentCards(env) {
+  envCards.innerHTML = `
+    <div class="env-card">🌡 Temp: ${env.temperature_c ?? "NA"} °C</div>
+    <div class="env-card">💧 Humidity: ${env.humidity ?? "NA"}%</div>
+    <div class="env-card">🌫 AQI: ${env.aqi ?? "NA"}</div>
+    <div class="env-card">🧪 PM2.5: ${env.pm25 ?? "NA"}</div>
+    <div class="env-card">🌪 PM10: ${env.pm10 ?? "NA"}</div>
+  `;
+}
+
+// -------------------------------
+// City → Lat/Lon → Map
+// -------------------------------
+cityInput.addEventListener("blur", async () => {
+  if (!cityInput.value) return;
+
+  const geo = await geocodeCity(cityInput.value);
+  if (!geo) return;
+
+  latInput.value = geo.lat.toFixed(5);
+  lonInput.value = geo.lon.toFixed(5);
+
+  marker.setLatLng([geo.lat, geo.lon]);
+  map.setView([geo.lat, geo.lon], 10);
 });
 
-latInput.addEventListener("change", () => {
-  if (latInput.value && lonInput.value) {
-    updateLocation(latInput.value, lonInput.value);
-    reverseGeocode(latInput.value, lonInput.value);
-  }
+// -------------------------------
+// Map Drag → Lat/Lon → City
+// -------------------------------
+marker.on("dragend", async () => {
+  const { lat, lng } = marker.getLatLng();
+  latInput.value = lat.toFixed(5);
+  lonInput.value = lng.toFixed(5);
+
+  const city = await reverseGeocode(lat, lng);
+  if (city) cityInput.value = city;
 });
 
-lonInput.addEventListener("change", () => {
-  if (latInput.value && lonInput.value) {
-    updateLocation(latInput.value, lonInput.value);
-    reverseGeocode(latInput.value, lonInput.value);
-  }
-});
-
-map.on("click", (e) => {
-  updateLocation(e.latlng.lat, e.latlng.lng);
-  reverseGeocode(e.latlng.lat, e.latlng.lng);
-});
-
-// ================= SUBMIT =================
+// -------------------------------
+// Ask Button → Chat API
+// -------------------------------
 sendBtn.addEventListener("click", async () => {
-  answerBox.innerText = "Thinking…";
-
-  if (!latInput.value || !lonInput.value) {
-    answerBox.innerText = "Please select a location first.";
-    return;
-  }
-
-  if (!questionInput.value && imageInput.files.length === 0) {
-    answerBox.innerText =
-      "Please ask a question or upload a plant image.";
-    return;
-  }
+  answerBox.innerText = "Thinking...";
+  envCards.innerHTML = "";
 
   const formData = new FormData();
-  formData.append("session_id", "demo");
-  formData.append("latitude", latInput.value);
-  formData.append("longitude", lonInput.value);
+  formData.append("session_id", "ui-session-1");
+  formData.append("latitude", latInput.value || "0");
+  formData.append("longitude", lonInput.value || "0");
 
-  if (questionInput.value)
-    formData.append("question", questionInput.value);
+  if (questionInput.value.trim()) {
+    formData.append("question", questionInput.value.trim());
+  }
 
-  if (imageInput.files.length > 0)
+  if (imageInput.files.length > 0) {
     formData.append("image", imageInput.files[0]);
+  }
 
   try {
-    const res = await fetch(BACKEND_URL, {
+    const res = await fetch("http://127.0.0.1:8000/chat", {
       method: "POST",
-      body: formData
+      body: formData,
     });
 
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Backend error ${res.status}: ${text}`);
+    }
+
     const data = await res.json();
-    console.log("Backend response:", data);
+    console.log("Chat response:", data);
 
     answerBox.innerText = data.answer || "No answer returned.";
 
+    if (data.environment) {
+      renderEnvironmentCards(data.environment);
+    }
   } catch (err) {
-    console.error(err);
-    answerBox.innerText = "Backend connection failed.";
+    console.error("Chat failed:", err);
+    answerBox.innerText = "⚠️ Failed to get response. Check console.";
   }
 });
